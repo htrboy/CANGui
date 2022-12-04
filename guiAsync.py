@@ -5,13 +5,14 @@ import threading
 import random
 import queue
 import can
-import signal
+#import signal
 import sys
+#import GetAddress
 
 root = Tk()
 
 
-from can import message
+#from can import message
 from can.interface import Bus
 
 can.rc['interface'] = 'kvaser'
@@ -39,7 +40,8 @@ def receiveMessages():
         #msg = bus.recv()       
         mesgID= inMsg.arbitration_id
         mesgData = inMsg.data
-        incomingMessage = ("ID: " + mesgID, "Data: " + mesgData)
+        #address = getAddress(mesgID)
+        incomingMessage = ( "ID: " + mesgID, "Data: " + mesgData ) #, "Address: " + address )
         return incomingMessage
 
     '''
@@ -70,6 +72,39 @@ def receiveMessages():
             
     return mesg
     '''
+
+def getAddress(inCanID):
+
+    ''' TAKES A HEX CAN_ID AND RETURNS AN ESS MODULE ADDRESS '''
+    canID = str(inCanID)
+        
+    # check for 8 bytes        
+    if len(canID) < 8:        
+        print(canID)
+        modAddr = hex(255)
+    
+    else:
+    
+        # trim to the desired digits
+        # xxxxNNNx        
+        canID = inCanID[4:7]
+        
+        # change the resulting hex value to binary value
+        bv = bin(int(canID, 16))[2:].zfill(12)
+
+        # discard the rightmost bit and take the
+        # remaining right six bits '[6:11]'
+        bv = int(bv[6:11],2)
+
+        # the resulting number is a string...
+        # convert it to int(base 2) then hex
+        modAddr = hex(int(bv))       
+        
+        
+    #def __str__(self):
+        
+        # return the resulting hex value as string
+    return str(modAddr)
 
 class GuiPart:
     def __init__(self, master, queue, endCommand, root):
@@ -144,7 +179,6 @@ class GuiPart:
                 # just on general principles, although we don't
                 # expect this branch to be taken in this case
                 pass
-        
 
 class ThreadedClient:
     """
@@ -194,29 +228,27 @@ class ThreadedClient:
         a 'select(  )'. One important thing to remember is that the thread has
         to yield control pretty regularly, by select or otherwise.
         """
+        '''
+        TODO: CAN-bus listener is async - need to learn how to use it that way, 
+              then this part shouldn't be necessary
+        '''
         while self.running:
-            # To simulate asynchronous I/O, we create a random number at
-            # random intervals. Replace the following two lines with the real
-            # thing.
-            #time.sleep(rand.random(  ) * 1.5)
-            #msg = rand.random(  )
+            
             inMsg = bus.recv()
-            #inMsg = reader.on_message_received
-            #inMsg = reader.get_message()
+            
             if inMsg is not None:
         #msg = bus.recv()       
                 mesgID = inMsg.arbitration_id
                 mesgData = inMsg.data
-                incomingMessage = ("ID: " + str(mesgID), "Data: " + str(mesgData))
-                #return incomingMessage
-                #msg = receiveMessages()
-                #self.queue.put(msg)
+                mesgAddr = getAddress(str(mesgID)) # getAddr expects str
+                incomingMessage = ("ID: " + str(mesgID), "Data: " + str(mesgData), "Address: " + mesgAddr )
+                
                 self.queue.put(incomingMessage)
 
     def endApplication(self):
         self.running = 0
 
-rand = random.Random(  )
+#rand = random.Random(  )
 
 
 client = ThreadedClient(root)
